@@ -1,0 +1,331 @@
+---
+title: "Proyecto"
+author: "Ruben Flores"
+date: "2022-11-10"
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+# Seleccion de datos
+Seleccionamos unicamente los datos que son utiles para nuestro analisis de
+todas las fichas tecnicas de las unidades educativas obtenidas 
+Se toma en cuenta solo los datos de infraestructura.
+```{r}
+library(haven)
+library(dplyr)
+
+bd_seie <- seie %>% select(Agua,Energia,Banos,Internet,Aulas,Laboratorios,Bibliotecas,Computacion,Canchas,Gimnasios,Coliseo,Piscinas,SalaDireccion,Secretaria,SalaReuniones,Taller,Vivienda)
+
+```
+
+
+
+# Presocesamiento y Tranformacion
+En esta etapa se realiza la transformacion de variables para poder tener una base de datos homogenea, se remplazan valores literales por numericos.
+Ademas se realiza la transformacion de las variables a tipo numerico y factor para poder realizar el analisis
+```{r}
+
+
+bd_seie$Agua <- gsub("SI","1",bd_seie$Agua)
+bd_seie$Agua <- gsub("--","0",bd_seie$Agua)
+
+bd_seie$Energia <- gsub("SI","1",bd_seie$Energia)
+bd_seie$Energia <- gsub("--","0",bd_seie$Energia)
+
+bd_seie$Banos <- gsub("SI","1",bd_seie$Banos)
+bd_seie$Banos <- gsub("--","0",bd_seie$Banos)
+
+bd_seie$Internet <- gsub("SI","1",bd_seie$Internet)
+bd_seie$Internet <- gsub("--","0",bd_seie$Internet)
+
+bd_seie$Aulas <- gsub("--","0",bd_seie$Aulas)
+
+bd_seie$Laboratorios <- gsub("--","0",bd_seie$Laboratorios)
+
+bd_seie$Bibliotecas <- gsub("--","0",bd_seie$Bibliotecas)
+
+bd_seie$Computacion <- gsub("--","0",bd_seie$Computacion)
+
+bd_seie$Canchas <- gsub("--","0",bd_seie$Canchas)
+
+bd_seie$Gimnasios <- gsub("--","0",bd_seie$Gimnasios)
+
+bd_seie$Coliseo <- gsub("--","0",bd_seie$Coliseo)
+
+bd_seie$Piscinas <- gsub("--","0",bd_seie$Piscinas)
+
+bd_seie$SalaDireccion <- gsub("SI","1",bd_seie$SalaDireccion)
+bd_seie$SalaDireccion <- gsub("--","0",bd_seie$SalaDireccion)
+
+bd_seie$Secretaria <- gsub("SI","1",bd_seie$Secretaria)
+bd_seie$Secretaria <- gsub("--","0",bd_seie$Secretaria)
+
+bd_seie$SalaReuniones <- gsub("SI","1",bd_seie$SalaReuniones)
+bd_seie$SalaReuniones <- gsub("--","0",bd_seie$SalaReuniones)
+
+bd_seie$Vivienda <- gsub("SI","1",bd_seie$Vivienda)
+bd_seie$Vivienda <- gsub("--","0",bd_seie$Vivienda)
+
+
+
+bd_seie$Agua <- factor(bd_seie$Agua)
+bd_seie$Energia <- factor(bd_seie$Energia)
+bd_seie$Banos <- factor(bd_seie$Banos)
+bd_seie$Internet <- factor(bd_seie$Internet)
+bd_seie$Aulas <- as.numeric(bd_seie$Aulas)
+bd_seie$Laboratorios <- as.numeric(bd_seie$Laboratorios)
+bd_seie$Bibliotecas <- as.numeric(bd_seie$Bibliotecas)
+bd_seie$Computacion <- as.numeric(bd_seie$Computacion)
+bd_seie$Canchas <- as.numeric(bd_seie$Canchas)
+bd_seie$Gimnasios <- as.numeric(bd_seie$Gimnasios)
+bd_seie$Coliseo <- as.numeric(bd_seie$Coliseo)
+bd_seie$Piscinas <- as.numeric(bd_seie$Piscinas)
+bd_seie$SalaDireccion <- factor(bd_seie$SalaDireccion)
+bd_seie$Secretaria <- factor(bd_seie$Secretaria)
+bd_seie$SalaReuniones <- factor(bd_seie$SalaReuniones)
+bd_seie$Vivienda <- factor(bd_seie$Vivienda)
+bd_seie$Taller <- as.numeric(bd_seie$Taller)
+
+str(bd_seie)
+
+
+```
+
+# Metodologia
+
+```{r}
+library(cluster)
+library(ggplot2)
+library(rlang)
+library(cluster) # medoides
+library(Kmedians) # medianas
+library(factoextra) # visual
+library(dplyr)
+
+summary(bd_seie)
+str(bd_seie)
+
+bd_seie <- bd_seie %>% select(-Gimnasios,-Piscinas)
+# Se decide eliminar las variables Gimnasios y Piscinas ya que ninguna observacion cuenta con dicho equipamento.
+
+# Kmeans
+# Matriz de distancias
+# Se utilizara la distancia euclidiana debido a que todas las variables son numericas.
+mdist<-dist(bd_seie)
+
+
+# Para la eleccion del numero de grupos 'K', primero se realiza el grafico para el metodo de elbow o punto de corte.
+# Se obtiene el vector de errores cuadraticos
+wcss <- vector()
+for(i in 1:20){
+  wcss[i] <- sum(kmeans(bd_seie, i)$withinss)
+}
+ggplot() + geom_point(aes(x = 1:20, y = wcss), color = 'blue') + 
+  geom_line(aes(x = 1:20, y = wcss), color = 'blue') + 
+  ggtitle("Método de Elbow") + 
+  xlab('Cantidad de Centroides k') + 
+  ylab('WCSS')
+# En el grafico se observa el punto de corte en K = 4
+
+
+pskmedia<-NULL
+for(k in 2:10){
+  mk<-kmeans(bd_seie,k)
+  sk<-silhouette(mk$cluster,mdist)
+  pskmedia[k-1]<-mean(sk[,3])
+}
+
+pskmedia
+
+mk2<-kmeans(bd_seie,2)
+sk2<-silhouette(mk2$cluster,mdist)
+plot(sk2)
+
+mk3<-kmeans(bd_seie,3)
+sk3<-silhouette(mk3$cluster,mdist)
+plot(sk3)  
+
+mk4<-kmeans(bd_seie,4)
+sk4<-silhouette(mk4$cluster,mdist)
+plot(sk4)  
+
+mk4$centers
+sk4
+mk4$size
+mk4
+summary(mk4)
+
+mk3$centers
+sk3
+mk3$size
+
+mk2$centers
+sk2
+mk2$size
+
+
+pskmedoide<-NULL
+for(k in 2:5){
+  mkm<-pam(bd_seie,k)
+  skm<-silhouette(mkm$clustering,mdist)
+  pskmedoide[k-1]<-mean(skm[,3])
+}
+
+
+pskmedoide
+
+# Se prepara base de datos auxiliar para obtener los coeficientes de mediana, debido a que no acepta varaibles de tipo factor se convierte a numerico
+bdaux <- bd_seie
+bdaux$Agua <- as.numeric(bdaux$Agua)
+bdaux$Energia <- as.numeric(bdaux$Energia)
+bdaux$Banos <- as.numeric(bdaux$Banos)
+bdaux$Internet <- as.numeric(bdaux$Internet)
+bdaux$SalaDireccion <- as.numeric(bdaux$SalaDireccion)
+bdaux$Secretaria <- as.numeric(bdaux$Secretaria)
+bdaux$SalaReuniones <- as.numeric(bdaux$SalaReuniones)
+bdaux$Vivienda <- as.numeric(bdaux$Vivienda)
+bdaux$Taller <- as.numeric(bdaux$Taller)
+
+pskmediana <- NULL 
+for(k in 2:10){
+  mk<-Kmedians(bdaux,k)
+  sk<-silhouette(mk$bestresult$cluster,mdist)
+  pskmediana[k-1]<-mean(sk[,3])
+}
+
+summary_psk <- data.frame(pskmedia,pskmediana,pskmedoide)
+summary_psk<-summary_psk %>% mutate(k=2:10)
+summary_psk
+# Por el coeficiente de silueta de los 3 metodos k center se recomienda usar con k = 2, el k means presenta un valor alto hasta k=3y4, por otro lado los demas metodos tienen un coeficiente alto unicamente hasta k=2
+
+# Por fines de la investigacion se probara metodos desde 2 a 4 grupos
+#Medoide
+mm2 <- pam(bd_seie,2)
+mm2$medoids
+mm2$clusinfo
+#Por los resultados obtenidos por el metodo medoide es muy dificil tener una aproximacion e interpretacion de cada grupo, por lo que se descarta el metodo
+
+#Mediana
+mmed2<- Kmedians(bdaux,2)
+mmed2$bestresult
+mmed2$allresults
+# Al tener valores con poca variacion entre si, el metodo de medianas tampoco nos ofrece centroides con una buena interpretacion
+
+# K Means
+mk4$centers
+sk4
+mk4$size
+
++mk3$centers
+sk3
+mk3$size
+
+mk2$centers
+sk2
+mk2$size
+
+fviz_cluster(object = mk4, data = bdaux, show.clust.cent = TRUE,
+             ellipse.type = "euclid", star.plot = TRUE, repel = TRUE,
+             pointsize=0.5,outlier.color="darkred") +
+  labs(title = "Resultados clustering K-means") +
+  theme_bw() +  theme(legend.position = "none")
+
+fviz_cluster(object = mk3, data = bdaux, show.clust.cent = TRUE,
+             ellipse.type = "euclid", star.plot = TRUE, repel = TRUE,
+             pointsize=0.5,outlier.color="darkred") +
+  labs(title = "Resultados clustering K-means") +
+  theme_bw() +  theme(legend.position = "none")
+
+options(ggrepel.max.overlaps = 10)
+
+bdagrupados <- seie 
+bdagrupados$cluster <- mk4$cluster
+bdagrupados <- bdagrupados %>% select(AreaGeografica,Dependencia,cluster) 
+bdagrupados$AreaGeografica <- gsub("RURAL","1",bdagrupados$AreaGeografica)
+bdagrupados$Dependencia <- gsub("FISCAL","1",bdagrupados$Dependencia)
+bdagrupados$AreaGeografica <- gsub("URBANA","0",bdagrupados$AreaGeografica)
+bdagrupados$Dependencia <- gsub("PRIVADO","0",bdagrupados$Dependencia)
+bdagrupados$AreaGeografica <- as.numeric(bdagrupados$AreaGeografica)
+bdagrupados$Dependencia <- as.numeric(bdagrupados$Dependencia)
+# Desagregacion
+bdagrupados %>% group_by(cluster) %>% summarise(mean(AreaGeografica),mean(Dependencia))
+
+# Modelo Alternativo
+install.packages("tclust")
+library(tclust)
+clustering <- tclust(
+                x = bd_seie,
+                k = 4, 
+                alpha = 0.1,
+                restr = "eigen")
+clustering$centers
+clustering
+
+sum(clustering$cluster == 0)
+
+#Se elige k = 4 
+
+bdatipicos <- bd_seie
+bdatipicos$cluster <- clustering$cluster
+bdCorregida <- bdatipicos %>% filter(bdatipicos$cluster != 0)
+
+mc4 <- kmeans(bdCorregida[,1:15],4)
+mc4$centers
+
+
+str(bdCorregida)
+fviz_cluster(object = mc4, data = bdCorregida[,1:15], show.clust.cent = TRUE,
+             ellipse.type = "euclid", star.plot = TRUE, repel = TRUE,
+             pointsize=0.5,outlier.color="darkred") +
+  labs(title = "Resultados clustering K-means") +
+  theme_bw() +  theme(legend.position = "none")
+
+bdCorregida$Agua <- as.numeric(bdCorregida$Agua)
+bdCorregida$Energia <- as.numeric(bdCorregida$Energia)
+bdCorregida$Banos <- as.numeric(bdCorregida$Banos)
+bdCorregida$Internet <- as.numeric(bdCorregida$Internet)
+bdCorregida$SalaDireccion <- as.numeric(bdCorregida$SalaDireccion)
+bdCorregida$Secretaria <- as.numeric(bdCorregida$Secretaria)
+bdCorregida$SalaReuniones <- as.numeric(bdCorregida$SalaReuniones)
+bdCorregida$Vivienda <- as.numeric(bdCorregida$Vivienda)
+bdCorregida$Taller <- as.numeric(bdCorregida$Taller)
+
+cskmedia<-NULL
+mdistCorregida <- dist(bdCorregida[,1:15])
+for(k in 2:6){
+  mk<-kmeans(bdCorregida[,1:15],k)
+  sk<-silhouette(mk$cluster,mdistCorregida)
+  cskmedia[k-1]<-mean(sk[,3])
+}
+cskmedia
+
+mc3 <- kmeans(bdCorregida[,1:15],3)
+mc3$centers
+mc3$size
+
+str(bdCorregida)
+fviz_cluster(object = mc3, data = bdCorregida[,1:15], show.clust.cent = TRUE,
+             ellipse.type = "euclid", star.plot = TRUE, repel = TRUE,
+             pointsize=0.5,outlier.color="darkred") +
+  labs(title = "Resultados clustering K-means") +
+  theme_bw() +  theme(legend.position = "none")
+
+bdresultados <- seie 
+bdresultados$cluster <- clustering$cluster
+bdresultados <- bdresultados %>% filter(cluster != 0)
+bdresultados$cluster <- mc3$cluster
+
+bdresultados <- bdresultados %>% select(AreaGeografica,Dependencia,cluster) 
+bdresultados$AreaGeografica <- gsub("RURAL","1",bdresultados$AreaGeografica)
+bdresultados$Dependencia <- gsub("FISCAL","1",bdresultados$Dependencia)
+bdresultados$AreaGeografica <- gsub("URBANA","0",bdresultados$AreaGeografica)
+bdresultados$Dependencia <- gsub("PRIVADO","0",bdresultados$Dependencia)
+bdresultados$AreaGeografica <- as.numeric(bdresultados$AreaGeografica)
+bdresultados$Dependencia <- as.numeric(bdresultados$Dependencia)
+str(bdresultados)
+# Desagregacion
+bdresultados %>% group_by(cluster) %>% summarise(mean(AreaGeografica),mean(Dependencia))
+
+```
